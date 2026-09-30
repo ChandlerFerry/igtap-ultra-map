@@ -70,6 +70,18 @@ svg :is(path, rect, circle) {
 .bar .end {
   margin-left: auto;
 }
+.bar .links {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+.bar .links a {
+  display: inline-flex;
+  color: #9fb3cc;
+}
+.bar .links a:hover {
+  color: #18ffff;
+}
 .bar label {
   display: inline-flex;
   align-items: center;
