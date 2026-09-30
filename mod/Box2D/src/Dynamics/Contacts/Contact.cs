@@ -1,0 +1,513 @@
+using System;
+using System.Diagnostics;
+using System.Numerics;
+using System.Runtime.CompilerServices;
+using Math = Box2D.Math;
+
+namespace Box2D
+{
+    public abstract class b2Contact
+    {
+        private const byte CircleCircle = (b2CircleShape.contactMatch << 2) + b2CircleShape.contactMatch;
+        private const byte CircleEdge = (b2CircleShape.contactMatch << 2) + b2EdgeShape.contactMatch;
+        private const byte CirclePolygon = (b2CircleShape.contactMatch << 2) + b2PolygonShape.contactMatch;
+        private const byte CircleChain = (b2CircleShape.contactMatch << 2) + b2ChainShape.contactMatch;
+        private const byte EdgeCircle = (b2EdgeShape.contactMatch << 2) + b2CircleShape.contactMatch;
+        private const byte EdgeEdge = (b2EdgeShape.contactMatch << 2) + b2EdgeShape.contactMatch;
+        private const byte EdgePolygon = (b2EdgeShape.contactMatch << 2) + b2PolygonShape.contactMatch;
+        private const byte EdgeChain = (b2EdgeShape.contactMatch << 2) + b2ChainShape.contactMatch;
+        private const byte PolygonCircle = (b2PolygonShape.contactMatch << 2) + b2CircleShape.contactMatch;
+        private const byte PolygonEdge = (b2PolygonShape.contactMatch << 2) + b2EdgeShape.contactMatch;
+        private const byte PolygonPolygon = (b2PolygonShape.contactMatch << 2) + b2PolygonShape.contactMatch;
+        private const byte PolygonChain = (b2PolygonShape.contactMatch << 2) + b2ChainShape.contactMatch;
+        private const byte ChainCircle = (b2ChainShape.contactMatch << 2) + b2CircleShape.contactMatch;
+        private const byte ChainEdge = (b2ChainShape.contactMatch << 2) + b2EdgeShape.contactMatch;
+        private const byte ChainPolygon = (b2ChainShape.contactMatch << 2) + b2PolygonShape.contactMatch;
+        private const byte ChainChain = (b2ChainShape.contactMatch << 2) + b2ChainShape.contactMatch;
+
+        public readonly b2Fixture m_fixtureA;
+        public readonly b2Fixture m_fixtureB;
+
+        internal readonly int m_indexA;
+        internal readonly int m_indexB;
+
+        public readonly b2ContactEdge m_nodeA;
+        public readonly b2ContactEdge m_nodeB;
+
+        public b2CollisionFlags m_flags;
+
+        public float m_friction;
+
+        public b2Manifold m_manifold = new b2Manifold();
+        public b2Contact m_next;
+
+        public b2Contact m_prev;
+        public float m_restitution;
+
+        public float m_tangentSpeed;
+        public float m_toi;
+
+        public int m_toiCount;
+
+        public long m_touchOrder;
+
+        internal void LeaveTouchOrder()
+        {
+            b2Body body = m_fixtureA.b2Body.Type() == b2BodyType.Static ? m_fixtureB.b2Body : m_fixtureA.b2Body;
+            object userA = m_fixtureA.UserData, userB = m_fixtureB.UserData;
+            b2Contact last = null;
+            for (b2ContactEdge e = body.m_contactList; e != null; e = e.next)
+            {
+                b2Contact other = e.contact;
+                if (other == this || (other.m_flags & b2CollisionFlags.Touching) == 0 || other.m_touchOrder < m_touchOrder) continue;
+                object a = other.m_fixtureA.UserData, b = other.m_fixtureB.UserData;
+                if (!(a == userA && b == userB || a == userB && b == userA)) continue;
+                if (last == null || other.m_touchOrder > last.m_touchOrder) last = other;
+            }
+
+            if (last != null) last.m_touchOrder = m_touchOrder;
+        }
+
+        public b2Contact(b2Fixture fA, int indexA, b2Fixture fB, int indexB)
+        {
+            m_flags = b2CollisionFlags.Enabled;
+
+            m_fixtureA = fA;
+            m_fixtureB = fB;
+
+            m_indexA = indexA;
+            m_indexB = indexB;
+
+            m_manifold.pointCount = 0;
+
+            m_prev = null;
+            m_next = null;
+
+            m_nodeA = new b2ContactEdge();
+            m_nodeB = new b2ContactEdge();
+
+            m_toiCount = 0;
+
+            m_friction = b2Settings.MixFriction(m_fixtureA.m_friction, m_fixtureB.m_friction);
+            m_restitution = b2Settings.MixRestitution(m_fixtureA.Restitution, m_fixtureB.Restitution);
+
+            m_tangentSpeed = 0f;
+        }
+
+        public b2Manifold b2Manifold
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => m_manifold;
+        }
+
+        public bool Enabled
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => IsEnabled();
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            set => SetEnabled(value);
+        }
+
+        public bool Touching
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => IsTouching();
+        }
+
+        public b2Contact Next
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => GetNext();
+        }
+
+        public b2Fixture FixtureA
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => m_fixtureA;
+        }
+
+        public b2Fixture FixtureB
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => m_fixtureB;
+        }
+
+        public float Friction
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => GetFriction();
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            set => SetFriction(value);
+        }
+
+        public float Restitution
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => GetRestitution();
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            set => SetRestitution(value);
+        }
+
+        public float TangentSpeed
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => GetTangentSpeed();
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            set => SetTangentSpeed(value);
+        }
+
+        public int ChildIndexA
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => GetChildIndexA();
+        }
+
+        public int ChildIndexB
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => GetChildIndexB();
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public b2Manifold GetManifold() => m_manifold;
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void GetWorldManifold(out b2WorldManifold worldManifold)
+        {
+            b2Body bodyA = m_fixtureA.b2Body;
+            b2Body bodyB = m_fixtureB.b2Body;
+            b2Shape shapeA = m_fixtureA.b2Shape;
+            b2Shape shapeB = m_fixtureB.b2Shape;
+
+            worldManifold = new b2WorldManifold();
+            worldManifold.Initialize(m_manifold, bodyA.GetTransform(), shapeA.m_radius, bodyB.GetTransform(),
+                                     shapeB.m_radius);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void SetEnabled(bool flag)
+        {
+            if (flag)
+            {
+                m_flags |= b2CollisionFlags.Enabled;
+            }
+            else
+            {
+                m_flags &= ~b2CollisionFlags.Enabled;
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool IsEnabled() => (m_flags & b2CollisionFlags.Enabled) == b2CollisionFlags.Enabled;
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool IsTouching() => (m_flags & b2CollisionFlags.Touching) == b2CollisionFlags.Touching;
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public b2Contact GetNext() => m_next;
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public b2Fixture GetFixtureA() => FixtureA;
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public b2Fixture GetFixtureB() => FixtureB;
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void FlagForFiltering()
+        {
+            m_flags |= b2CollisionFlags.b2Filter;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public float GetFriction() => m_friction;
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void SetFriction(float friction)
+        {
+            m_friction = friction;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void ResetFriction()
+        {
+            m_friction = b2Settings.MixFriction(m_fixtureA.m_friction, m_fixtureB.m_friction);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void SetRestitution(float restitution)
+        {
+            m_restitution = restitution;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public float GetRestitution() => m_restitution;
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void ResetRestitution()
+        {
+            m_restitution = b2Settings.MixRestitution(m_fixtureA.m_restitution, m_fixtureB.m_restitution);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void SetTangentSpeed(float speed)
+        {
+            m_tangentSpeed = speed;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public float GetTangentSpeed() => m_tangentSpeed;
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public int GetChildIndexA() => m_indexA;
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public int GetChildIndexB() => m_indexB;
+
+        public abstract void Evaluate(out b2Manifold manifold, in b2Transform xfA, in b2Transform xfB);
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static b2Contact Create(b2Fixture fixtureA, int indexA, b2Fixture fixtureB, int indexB)
+        {
+            int match = (fixtureA.b2Shape.ContactMatch << 2) + fixtureB.b2Shape.ContactMatch;
+            return (match switch
+            {
+                CircleCircle => new b2CircleContact(fixtureA, indexA, fixtureB, indexB),
+                CircleEdge => new b2EdgeAndCircleContact(fixtureB, indexB, fixtureA, indexA),
+                CirclePolygon => new b2PolyAndCircleContact(fixtureB, indexB, fixtureA, indexA),
+                CircleChain => new b2ChainAndCircleContact(fixtureB, indexB, fixtureA, indexA),
+                EdgeCircle => new b2EdgeAndCircleContact(fixtureA, indexA, fixtureB, indexB),
+                EdgeEdge => null,
+                EdgePolygon => new b2EdgeAndPolygonContact(fixtureA, indexA, fixtureB, indexB),
+                EdgeChain => null,
+                PolygonCircle => new b2PolyAndCircleContact(fixtureA, indexA, fixtureB, indexB),
+                PolygonEdge => new b2EdgeAndPolygonContact(fixtureB, indexB, fixtureA, indexA),
+                PolygonPolygon => new b2PolygonContact(fixtureA, indexA, fixtureB, indexB),
+                PolygonChain => new b2ChainAndPolygonContact(fixtureB, indexB, fixtureA, indexA),
+                ChainCircle => new b2ChainAndCircleContact(fixtureA, indexA, fixtureB, indexB),
+                ChainEdge => null,
+                ChainPolygon => new b2ChainAndPolygonContact(fixtureA, indexA, fixtureB, indexB),
+                ChainChain => null,
+                _ => null
+            })!;
+        }
+
+        public void Update(b2ContactListener listener)
+        {
+            b2Manifold oldManifold = m_manifold;
+
+            m_flags |= b2CollisionFlags.Enabled;
+
+            bool touching;
+            bool wasTouching = (m_flags & b2CollisionFlags.Touching) != 0;
+
+            bool sensorA = m_fixtureA.IsSensor();
+            bool sensorB = m_fixtureB.IsSensor();
+            bool sensor = sensorA || sensorB;
+
+            b2Body bodyA = m_fixtureA.b2Body;
+            b2Body bodyB = m_fixtureB.b2Body;
+            b2Transform xfA = bodyA.b2Transform;
+            b2Transform xfB = bodyB.b2Transform;
+
+            if (sensor)
+            {
+                b2Shape shapeA = m_fixtureA.b2Shape;
+                b2Shape shapeB = m_fixtureB.b2Shape;
+                touching = TestOverlap(shapeA, m_indexA, shapeB, m_indexB, xfA, xfB);
+
+                m_manifold.pointCount = 0;
+            }
+            else
+            {
+                Evaluate(out m_manifold, xfA, xfB);
+                touching = m_manifold.pointCount > 0;
+
+                for (var i = 0; i < m_manifold.pointCount; ++i)
+                {
+                    b2ManifoldPoint mp2 = m_manifold.points[i];
+                    mp2.normalImpulse = 0.0f;
+                    mp2.tangentImpulse = 0.0f;
+                    b2ContactID id2 = mp2.id;
+
+                    for (var j = 0; j < oldManifold.pointCount; ++j)
+                    {
+                        b2ManifoldPoint mp1 = oldManifold.points[j];
+
+                        if (mp1.id.key == id2.key)
+                        {
+                            mp2.normalImpulse = mp1.normalImpulse;
+                            mp2.tangentImpulse = mp1.tangentImpulse;
+                            break;
+                        }
+                    }
+                }
+
+                if (touching != wasTouching)
+                {
+                    bodyA.SetAwake(true);
+                    bodyB.SetAwake(true);
+                }
+            }
+
+            if (touching)
+            {
+                m_flags |= b2CollisionFlags.Touching;
+                if (!wasTouching) m_touchOrder = bodyA.GetWorld().NextTouchOrder();
+            }
+            else
+            {
+                m_flags &= ~b2CollisionFlags.Touching;
+                if (wasTouching) LeaveTouchOrder();
+            }
+
+            if (listener != null)
+            {
+                if (touching && !wasTouching)
+                {
+                    listener.BeginContact(this);
+                }
+
+                if (!touching && wasTouching)
+                {
+                    listener.EndContact(this);
+                }
+
+                if (touching && !sensor)
+                {
+                    listener.PreSolve(this, oldManifold);
+                }
+            }
+        }
+
+        private bool TestOverlap(in b2Shape shapeA, int indexA,
+            in b2Shape shapeB, int indexB,
+            in b2Transform xfA, in b2Transform xfB)
+        {
+            var input = new b2DistanceInput();
+            input.proxyA.Set(shapeA, indexA);
+            input.proxyB.Set(shapeB, indexB);
+            input.transformA = xfA;
+            input.transformB = xfB;
+            input.useRadii = true;
+
+            var cache = new b2SimplexCache();
+            cache.count = 0;
+
+            Distance(out b2DistanceOutput output, ref cache, in input);
+
+            return output.distance < 10.0f * b2Settings.FLT_EPSILON;
+        }
+
+        public static void Distance(out b2DistanceOutput output, ref b2SimplexCache cache, in b2DistanceInput input)
+        {
+            output = new b2DistanceOutput();
+
+            b2DistanceProxy proxyA = input.proxyA;
+            b2DistanceProxy proxyB = input.proxyB;
+
+            b2Transform transformA = input.transformA;
+            b2Transform transformB = input.transformB;
+
+            var simplex = new b2Simplex();
+            simplex.ReadCache(cache, proxyA, transformA, proxyB, transformB);
+
+            ref b2Array3<b2SimplexVertex> vertices = ref simplex.m_v;
+            const int k_maxIters = 20;
+
+            Span<int> saveA = stackalloc int[3], saveB = stackalloc int[3];
+            var saveCount = 0;
+
+            var iter = 0;
+            while (iter < k_maxIters)
+            {
+                saveCount = simplex.m_count;
+                for (var i = 0; i < saveCount; ++i)
+                {
+                    saveA[i] = vertices[i].indexA;
+                    saveB[i] = vertices[i].indexB;
+                }
+
+                switch (simplex.m_count)
+                {
+                    case 1:
+                        break;
+
+                    case 2:
+                        simplex.Solve2();
+                        break;
+
+                    case 3:
+                        simplex.Solve3();
+                        break;
+                }
+
+                if (simplex.m_count == 3)
+                {
+                    break;
+                }
+
+                b2Vec2 d = simplex.GetSearchDirection();
+
+                if (d.LengthSquared() < b2Settings.FLT_EPSILON_SQUARED)
+
+                {
+                    break;
+                }
+
+                ref b2SimplexVertex vertex = ref vertices[simplex.m_count];
+                vertex.indexA = proxyA.GetSupport(Math.MulT(transformA.q, -d));
+                vertex.wA = Math.Mul(transformA, proxyA.GetVertex(vertex.indexA));
+                vertex.indexB = proxyB.GetSupport(Math.MulT(transformB.q, d));
+                vertex.wB = Math.Mul(transformB, proxyB.GetVertex(vertex.indexB));
+                vertex.w = vertex.wB - vertex.wA;
+
+                ++iter;
+
+                var duplicate = false;
+                for (var i = 0; i < saveCount; ++i)
+                {
+                    if (vertex.indexA == saveA[i] && vertex.indexB == saveB[i])
+                    {
+                        duplicate = true;
+                        break;
+                    }
+                }
+
+                if (duplicate)
+                {
+                    break;
+                }
+
+                ++simplex.m_count;
+            }
+
+            simplex.GetWitnessPoints(out output.pointA, out output.pointB);
+            output.distance = b2Vec2.Distance(output.pointA, output.pointB);
+            output.iterations = iter;
+
+            simplex.WriteCache(ref cache);
+
+            if (input.useRadii)
+            {
+                float rA = proxyA._radius;
+                float rB = proxyB._radius;
+
+                if (output.distance > rA + rB && output.distance > b2Settings.FLT_EPSILON)
+                {
+                    output.distance -= rA + rB;
+                    b2Vec2 normal = output.pointB - output.pointA;
+                    normal = b2Vec2.Normalize(normal);
+                    output.pointA += rA * normal;
+                    output.pointB -= rB * normal;
+                }
+                else
+                {
+                    b2Vec2 p = 0.5f * (output.pointA + output.pointB);
+                    output.pointA = p;
+                    output.pointB = p;
+                    output.distance = 0.0f;
+                }
+            }
+        }
+    }
+}

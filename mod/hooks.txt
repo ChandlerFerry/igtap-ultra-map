@@ -1,0 +1,15 @@
+prefix Movement::getPlayerControlledInput OnPlayerInput
+prefix Movement::touchedSolidGround OnWallTouch
+prefix Movement::touchedMossyGround OnWallTouch
+prefix Movement::onDeath OnDeath
+prefix Movement::respawn OnRespawn
+replace courseScript::stopTracking OnCourseStop
+replace upgradeBox::OnTriggerStay2D OnUpgradeBoxStay
+replace clonesScript::isOnScreen OnClonesOnScreen
+replace courseScript::UpdateReward OnCourseReward
+replace courseScript::fullUpdate OnCourseReward
+prefix Movement::playSFX OnPlaySfx
+prefix Audio::PlayAudio OnPlayAudio
+prefix colouredBlockSwapper::swapBlocks OnSwapBlocks
+prefix Movement::TimeStop OnTimeStop
+prefix StepUpAnimationScript::onSteppedUp OnSteppedUp

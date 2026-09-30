@@ -1,0 +1,355 @@
+import { useEffect, useMemo, useState } from "react";
+import { Art, artIcons, artTiles, type ArtIndex } from "./Art";
+import { BoxCard, FloorCard, Hint, type Listed } from "./Cards";
+import { capturedStates, inState, type Marker, type StatePick, type TreeStep, type UltraData, type Zip } from "./data";
+import { floorPath, floorY, fmt, where, type P } from "./geometry";
+import { Legend } from "./Legend";
+import { Hazards, Level, levelPaths, type LevelShow } from "./Level";
+import { Labels, layerOf, Marks } from "./Marks";
+import { ArrowDefs, DropLabel, FloorPairs, UltraLegs } from "./PairLayers";
+import { decodePairs, groupByFloor, isShiftOnly, matches, pairCounts, ultraLegs, type Pair } from "./pairs";
+import { RouteModal } from "./RouteModal";
+import { loadSettings, saveSettings, type Direction, type Which } from "./settings";
+import { ShiftBar } from "./ShiftBar";
+import { RunShifts, ShiftRings } from "./ShiftLayers";
+import { dist } from "./shifts";
+import { StatePicker } from "./StatePicker";
+import { BANDS, BG, bandIndex, BOX_KINDS, kindColor, MARKERS, SHIFT_COLOR, WHITE } from "./theme";
+import { usePanZoom } from "./usePanZoom";
+import { useShareLink } from "./useShareLink";
+import { useShifts } from "./useShifts";
+import { centeredView, fitView, viewHeight } from "./view";
+import { zipAt, Zips } from "./Zips";
+
+const DATA_URL = `${import.meta.env.BASE_URL}ultras-VMAN.json`;
+const ART_URL = `${import.meta.env.BASE_URL}art/index.json`;
+
+export function UltraMap() {
+  const [data, setData] = useState<UltraData | null>(null);
+  const [art, setArt] = useState<ArtIndex | null>(null);
+  const [failure, setFailure] = useState("");
+  const [saved] = useState(loadSettings);
+  const [layers, setLayers] = useState(saved.layers);
+  const [legendOpen, setLegendOpen] = useState(saved.legend);
+  const [which, setWhich] = useState<Which>(saved.which);
+  const [direction, setDirection] = useState<Direction>(saved.direction);
+  const [world, setWorld] = useState<StatePick>({});
+  const [treeTip, setTreeTip] = useState<TreeStep | null>(null);
+  const [boxTip, setBoxTip] = useState<Marker | null>(null);
+  const [cursor, setCursor] = useState<P | null>(null);
+  const [hoverFloor, setHoverFloor] = useState(-1);
+  const [floor, setFloor] = useState(-1);
+  const [focus, setFocus] = useState<Pair | null>(null);
+  const [pinned, setPinned] = useState<ReadonlySet<Zip>>(new Set());
+
+  useEffect(() => {
+    fetch(DATA_URL)
+      .then((r) => {
+        if (!r.ok) throw new Error(`ultras-VMAN.json: HTTP ${r.status}`);
+        return r.json() as Promise<UltraData>;
+      })
+      .then(
+        (d) => {
+          setData(d);
+          setWorld(capturedStates(d.states));
+        },
+        (e) => setFailure(e instanceof Error ? e.message : String(e)),
+      );
+    fetch(ART_URL)
+      .then((r) => (r.ok ? (r.json() as Promise<ArtIndex>) : null))
+      .then(setArt, () => setArt(null));
+  }, []);
+
+  const floorOn = useMemo(
+    () => (data?.floors ?? []).map((_, i) => inState(data?.floorWhen?.[i], world)),
+    [data, world],
+  );
+  const shifts = useShifts(data, floorOn, saved.radius);
+  const { ring } = shifts;
+
+  useEffect(
+    () => saveSettings({ layers, which, direction, radius: shifts.radius, legend: legendOpen }),
+    [layers, which, direction, shifts.radius, legendOpen],
+  );
+
+  const pairs = useMemo(() => (data ? decodePairs(data) : []), [data]);
+  const byFloor = useMemo(
+    () =>
+      groupByFloor(
+        pairs.filter((p) => floorOn[p.from] && floorOn[p.to] && matches(p, which)),
+        data?.floors.length ?? 0,
+      ),
+    [pairs, floorOn, which, data],
+  );
+  const dropPaths = useMemo(() => {
+    const paths = [...BANDS.map(() => ""), ""];
+    (data?.floors ?? []).forEach((f, i) => {
+      const best = byFloor.into[i][0];
+      if (best) paths[isShiftOnly(best) ? BANDS.length : bandIndex(best.drop)] += floorPath(f);
+    });
+    return paths.map((d, i) => ({ d, color: i < BANDS.length ? BANDS[i][1] : SHIFT_COLOR }));
+  }, [data, byFloor]);
+  const floorPaths = useMemo(
+    () =>
+      (data?.kinds ?? []).map((_, k) =>
+        (data?.floors ?? [])
+          .filter((f, i) => floorOn[i] && f[4] === k)
+          .map(floorPath)
+          .join(""),
+      ),
+    [data, floorOn],
+  );
+  const level = useMemo(
+    () =>
+      levelPaths(
+        data?.solids ?? [],
+        (data?.boxes ?? []).filter((_, i) => inState(data?.boxWhen?.[i], world)),
+        data?.grown ?? [],
+        world,
+      ),
+    [data, world],
+  );
+  const markers = useMemo(() => (data?.markers ?? []).filter((m) => inState(m.when, world)), [data, world]);
+  const treeSteps = useMemo(() => data?.treeSteps ?? [], [data]);
+  const zips = useMemo(() => (data?.zips ?? []).filter((z) => inState(z.when, world)), [data, world]);
+  const icons = useMemo(() => artIcons(art), [art]);
+  const levelShow = useMemo<LevelShow>(
+    () => ({
+      spikes: layers.spikes,
+      boxes: layers.boxes,
+      blue: layers.blue,
+      orange: layers.orange,
+      grown: layers.grown,
+      springs: layers.springs,
+    }),
+    [layers],
+  );
+  const markerKinds = useMemo(
+    () => ({
+      ...Object.fromEntries(Object.keys(MARKERS).map((k) => [k, layers[`marker:${k}`]])),
+      ...Object.fromEntries(Object.keys(BOX_KINDS).map((c) => [`box:${c}`, layers[`marker:box:${c}`]])),
+    }),
+    [layers],
+  );
+
+  const floorAt = (p: P, reach: number) => {
+    let best = -1,
+      near = reach;
+    (data?.floors ?? []).forEach((f, i) => {
+      if (!floorOn[i] || !layers[`floor:${data!.kinds[f[4]]}`]) return;
+      const x = Math.min(f[2], Math.max(f[0], p[0])),
+        d = Math.hypot(x - p[0], floorY(f, x) - p[1]);
+      if (d < near) {
+        near = d;
+        best = i;
+      }
+    });
+    return best;
+  };
+
+  const onTap = (p: P, reach: number, shiftKey: boolean) => {
+    if (shiftKey || shifts.placing || shifts.mode === "target") return shifts.place(p);
+    const zip = layers.zips ? zipAt(zips, p, reach) : undefined;
+    if (zip) {
+      setPinned((s) => {
+        const n = new Set(s);
+        if (!n.delete(zip)) n.add(zip);
+        return n;
+      });
+      return;
+    }
+    const tip = layers.tree ? (treeSteps.find((t) => Math.hypot(t.x - p[0], t.y - p[1]) < reach) ?? null) : null;
+    let box: Marker | null = null,
+      best = reach;
+    for (const m of markers) {
+      if (m.kind !== "box" || !markerKinds[layerOf(m)]) continue;
+      const d = Math.hypot(m.x - p[0], m.y - p[1]);
+      if (d < best) {
+        best = d;
+        box = m;
+      }
+    }
+    if (tip && Math.hypot(tip.x - p[0], tip.y - p[1]) < best) box = null;
+    setBoxTip(box);
+    setTreeTip(box ? null : tip);
+    if (!box && !tip) {
+      setFloor(floorAt(p, reach));
+      setFocus(null);
+    }
+  };
+
+  const onPointer = (p: P | null, hoverReach: number | null) => {
+    setCursor(p);
+    if (!p) setHoverFloor(-1);
+    else if (hoverReach !== null) setHoverFloor(floorAt(p, hoverReach));
+  };
+
+  const { svg, view, setView, size, handlers } = usePanZoom({ onTap, onPointer });
+  const share = useShareLink(data, size, view, setView, world, setWorld);
+
+  const px = view ? view.w / size.w : 1;
+  const artShown = !!art && layers.art;
+  const inView = view ? ([view.x, -(view.y + viewHeight(view, size)), view.x + view.w, -view.y] as const) : null;
+  const tilesFor = (pick: StatePick, on: boolean) =>
+    artShown && on && inView ? artTiles(art, pick, ...inView, px) : [];
+  const f = data && floor >= 0 ? data.floors[floor] : null;
+  const out = floor >= 0 && direction !== "in" ? byFloor.out[floor] : [];
+  const into = floor >= 0 && direction !== "out" ? byFloor.into[floor] : [];
+  const listed: Listed[] = [
+    ...out.map((p) => ({ p, dir: "out" as const })),
+    ...into.map((p) => ({ p, dir: "in" as const })),
+  ].sort((a, b) => b.p.drop - a.p.drop);
+  const hover = data && hoverFloor >= 0 && hoverFloor !== floor ? data.floors[hoverFloor] : null;
+  const labels = (data?.labels ?? []).filter((l) => inState(l.when, world));
+  const showLabel = (name: string) => layers[name.startsWith("bonus") ? "bonusLabels" : "labels"];
+
+  return (
+    <div className="app">
+      <header className="bar">
+        <button disabled={!data} onClick={() => data && setView(fitView(data.bounds, size))}>
+          Fit
+        </button>
+        {data?.states && <StatePicker states={data.states} pick={world} onPick={setWorld} />}
+        <button
+          className="end"
+          disabled={!share.link}
+          onClick={share.copy}
+          title="Copy a link to this view (the address bar has it too)"
+        >
+          {share.copied ? "Copied" : "Copy link"}
+        </button>
+      </header>
+      {ring && layers.rings && <ShiftBar s={shifts} ring={ring} />}
+      {failure && <p className="failure">{failure}</p>}
+      <div className="mapWrap">
+        <svg
+          ref={svg}
+          className="map"
+          viewBox={view ? `${view.x} ${view.y} ${view.w} ${viewHeight(view, size)}` : "0 0 1 1"}
+          {...handlers}
+        >
+          <rect x={-1e6} y={-1e6} width={2e6} height={2e6} fill={BG} />
+          <Art tiles={tilesFor({ ...world, bg: "on" }, layers.background)} />
+          <Art tiles={tilesFor(world, true)} />
+          <Art tiles={tilesFor({ ...world, tree: "grown" }, layers.tree)} />
+          {(!artShown || layers.shapes) && <Level paths={level} show={levelShow} px={px} />}
+          {artShown && !layers.shapes && layers.spikes && <Hazards paths={level} show={levelShow} />}
+          {data?.kinds.map(
+            (k, i) =>
+              layers[`floor:${k}`] && (
+                <path
+                  key={k}
+                  d={floorPaths[i]}
+                  fill="none"
+                  stroke={kindColor(k)}
+                  strokeWidth={2}
+                  strokeOpacity={f ? 0.35 : 1}
+                />
+              ),
+          )}
+          {ring && data && layers.run && <RunShifts route={data.rebase.route} ring={ring} />}
+          {ring && layers.rings && <ShiftRings s={shifts} ring={ring} px={px} />}
+          {!f &&
+            layers.drops &&
+            dropPaths.map((p) => (
+              <path key={p.color} d={p.d} fill="none" stroke={p.color} strokeWidth={6} strokeLinecap="round" />
+            ))}
+          <ArrowDefs px={px} />
+          {f && data && <FloorPairs floor={f} floors={data.floors} out={out} into={into} focus={focus} />}
+          {hover && (
+            <path
+              d={floorPath(hover)}
+              stroke={WHITE}
+              strokeOpacity={0.6}
+              strokeWidth={8}
+              strokeLinecap="round"
+              pointerEvents="none"
+            />
+          )}
+          {focus?.ultra && <UltraLegs legs={ultraLegs(focus.ultra)} />}
+          {focus && <DropLabel pair={focus} px={px} />}
+          <Labels labels={labels} px={px} show={showLabel} />
+          {layers.zips && <Zips zips={zips} px={px} pinned={pinned} />}
+          <Marks
+            icons={icons}
+            markers={markers}
+            steps={treeSteps}
+            px={px}
+            kinds={markerKinds}
+            areas={layers.areas}
+            checkpointAreas={layers.checkpointAreas}
+            showSteps={layers.tree}
+          />
+        </svg>
+        <Legend
+          kinds={data?.kinds ?? []}
+          icons={icons}
+          layers={layers}
+          onToggle={(key) => setLayers((l) => ({ ...l, [key]: !l[key] }))}
+          open={legendOpen}
+          onOpen={setLegendOpen}
+          which={which}
+          onWhich={(w) => {
+            setWhich(w);
+            setFocus(null);
+          }}
+          direction={direction}
+          onDirection={setDirection}
+        />
+        <div className="overlay">
+          {boxTip?.box ? (
+            <BoxCard marker={boxTip} onClose={() => setBoxTip(null)} />
+          ) : f && data ? (
+            <FloorCard
+              floor={f}
+              floors={data.floors}
+              counts={pairCounts(byFloor, floor)}
+              listed={listed}
+              focus={focus}
+              onFocus={setFocus}
+              onClose={() => {
+                setFloor(-1);
+                setFocus(null);
+              }}
+            />
+          ) : (
+            <Hint tree={treeTip} hover={hover ? `Floor ${where(hover)} · ${pairCounts(byFloor, hoverFloor)}` : null} />
+          )}
+          {cursor && (
+            <span className="readout">
+              {fmt(cursor)}
+              {ring &&
+                shifts.last &&
+                ` · ${dist(shifts.last, cursor, ring).toFixed(0)} u from ${shifts.label(shifts.chain.length - 1)} (ring ${ring.t})`}
+            </span>
+          )}
+        </div>
+      </div>
+      {shifts.mode === "target" && shifts.routesOpen && shifts.target && ring && data && (
+        <RouteModal
+          target={shifts.target}
+          radius={shifts.radius}
+          routes={shifts.routes}
+          pick={shifts.pick}
+          ring={ring}
+          center={shifts.center}
+          floors={data.floors}
+          kinds={data.kinds}
+          level={level}
+          show={levelShow}
+          onPick={shifts.setPick}
+          onClose={() => shifts.setRoutesOpen(false)}
+          onUse={() => {
+            if (!shifts.route) return;
+            shifts.adopt(shifts.route.points);
+            shifts.setRoutesOpen(false);
+          }}
+          onShow={(p) => {
+            shifts.setRoutesOpen(false);
+            setView(centeredView(p, 3000, size));
+          }}
+        />
+      )}
+    </div>
+  );
+}

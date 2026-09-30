@@ -1,0 +1,13 @@
+namespace Box2D
+{
+    public struct b2TOIInput
+    {
+        public b2Sweep sweepA;
+
+        public b2Sweep sweepB;
+
+        public b2DistanceProxy proxyA;
+        public b2DistanceProxy proxyB;
+        public float tMax;
+    }
+}

@@ -1,0 +1,9 @@
+{
+  "id": "chandlerferry.ultramap",
+  "displayName": "Ultra Map Exporter",
+  "version": "1.0.0",
+  "author": "ChandlerFerry",
+  "entryAssembly": "UltraMapExporter.dll",
+  "minLoaderVersion": "1.0.0",
+  "enabled": true
+}

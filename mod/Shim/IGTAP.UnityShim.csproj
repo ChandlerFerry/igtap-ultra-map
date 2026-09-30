@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>IGTAP.UnityShim</AssemblyName>
+    <RootNamespace>UnityEngine</RootNamespace>
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <Optimize>true</Optimize>
+    <NoWarn>$(NoWarn);CS0108;CS0114;CS0169;CS0414;CS0618;CS0649;CS0660;CS0661;CS1591;CS8981;CS0628</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Prep/IGTAP.EngineSim.Prep.csproj" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+
+  <Target Name="MonoFloatSemantics" AfterTargets="CoreCompile" BeforeTargets="CopyFilesToOutputDirectory">
+    <Exec Command="dotnet &quot;$(MSBuildThisFileDirectory)../Prep/bin/$(Configuration)/net10.0/IGTAP.EngineSim.Prep.dll&quot; monofloat &quot;@(IntermediateAssembly->'%(FullPath)')&quot; UnityEngine.Vector2 UnityEngine.Vector3 UnityEngine.Vector4 UnityEngine.Vector2Int UnityEngine.Vector3Int UnityEngine.Rect UnityEngine.Color UnityEngine.Color32 UnityEngine.Mathf UnityEngine.Quaternion" />
+  </Target>
+</Project>
