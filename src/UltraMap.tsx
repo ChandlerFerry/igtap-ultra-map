@@ -216,7 +216,7 @@ export function UltraMap() {
           onClick={share.copy}
           title="Copy a link to this view (the address bar has it too)"
         >
-          {share.copied ? "Copied" : "Copy link"}
+          {share.copied ? "Copied" : "Share"}
         </button>
         <nav className="links">
           <a
