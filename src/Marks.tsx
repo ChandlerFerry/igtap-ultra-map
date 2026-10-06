@@ -23,13 +23,17 @@ function formatCost(cost: number) {
 export const boxCost = (b: BoxInfo) => (b.cost <= 0 ? "free" : `${formatCost(b.cost)} ${b.currency}`);
 export const boxUses = (b: BoxInfo) => (b.cap === 1 ? "one-off" : `repeatable ×${b.cap}`);
 export const secretNumber = (b: BoxInfo) => (b.number ? ` #${b.number}` : "");
+// The game's object names are often stale copy-pastes (a "MoreOrbs" box that gives buy max), so name boxes by what they give.
+export const boxName = (b: BoxInfo) =>
+  b.gives.replace(/ \((global|local|movement ability)\)$/, "").replace(/^./, (c) => c.toUpperCase());
+const markName = (m: Marker) => (m.box ? boxName(m.box) : m.name);
 export const freshText = (b: BoxInfo) => (b.fresh ? "in the fresh world" : "only later");
 
 function boxTitle(m: Marker) {
   const b = m.box!;
   return (
-    `${BOX_KINDS[b.category].text}: ${m.name} · gives ${b.gives} · ${b.upgrade} · ${boxCost(b)} · ${boxUses(b)}` +
-    `${b.secret ? ` · secret${secretNumber(b)}` : ""}${b.ach ? ` · ${b.ach}` : ""} · ${freshText(b)}${b.tree ? " · tree upgrade" : ""}`
+    `${BOX_KINDS[b.category].text}: ${boxName(b)} · ${b.upgrade} · ${boxCost(b)} · ${boxUses(b)}` +
+    `${b.secret ? ` · secret${secretNumber(b)}` : ""}${b.ach ? ` · ${b.ach}` : ""} · ${freshText(b)}${b.tree ? " · tree upgrade" : ""} · in-game "${m.name}"`
   );
 }
 
@@ -62,13 +66,13 @@ function AreaOutline({ area, color }: { area: number[][]; color: string }) {
 function BoxLabel({ m, color, x, y, px }: { m: Marker; color: string; x: number; y: number; px: number }) {
   return (
     <text x={x} y={y} fill={color} fontSize={11 * px} textAnchor="middle" className="halo" strokeWidth={3 * px}>
-      {`${m.name} · ${boxCost(m.box!)}`}
+      {`${boxName(m.box!)} · ${boxCost(m.box!)}`}
     </text>
   );
 }
 
 function Mark({ m, look, px, icon, dim }: { m: Marker; look: Look; px: number; icon?: MarkIcon; dim?: boolean }) {
-  const title = <title>{`${look.text}: ${m.name}`}</title>;
+  const title = <title>{`${look.text}: ${markName(m)}`}</title>;
   const opacity = dim ? 0.25 : 1;
   if (m.spawn)
     return (

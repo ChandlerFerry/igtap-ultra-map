@@ -1,6 +1,6 @@
 import type { Marker, TreeStep } from "./data";
 import { where } from "./geometry";
-import { boxCost, boxUses, freshText, secretNumber, treeStepText } from "./Marks";
+import { boxCost, boxName, boxUses, freshText, secretNumber, treeStepText } from "./Marks";
 import { pairColor, type Pair, type Ultra } from "./pairs";
 import { BOX_KINDS, IN_COLOR } from "./theme";
 
@@ -29,7 +29,7 @@ export function BoxCard({
   return (
     <div className="panel">
       <div>
-        <strong>{marker.name}</strong> · {BOX_KINDS[b.category].text}
+        <strong>{boxName(b)}</strong> · {BOX_KINDS[b.category].text}
         <Close label="Clear the picked box" onClick={onClose} />
       </div>
       <div className="muted">
@@ -46,7 +46,7 @@ export function BoxCard({
         {b.ach ? `${b.ach} · ` : ""}
         {b.tree ? "tree upgrade · " : ""}
         {freshText(b)}
-        {marker.when ? ` · only in ${marker.when}` : ""}
+        {marker.when ? ` · only in ${marker.when}` : ""} · in-game "{marker.name}"
       </div>
     </div>
   );
