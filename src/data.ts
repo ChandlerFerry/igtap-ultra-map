@@ -82,13 +82,15 @@ export const capturedStates = (states: WorldState[] | undefined): StatePick =>
 /**
  * The ActivationSequence tier a box's upgrade unlocks on the refill orbs, or null if it affects none.
  * An orb is usable when `unlockJiggleDrops + moreRefreshOrbs > ActivationSequence` (JiggleDropScript.SetActiveVisualState),
- * so in the canonical buy order the jiggle-drop unlock turns on the sequence-0 orbs, the more-refresh-orbs box the
- * sequence-1 orbs, and Area 1's overgrowth (a world state, not a box) the sequence-2 ones.
+ * and three things bump that sum: the jiggle-drop unlock, the more-refresh-orbs tree box (350M NP), and the Omni Dash
+ * box's first buy (70B NP, upgradeBox.DoBuyUpgrade: it also overgrows Area 1). In buy order that's sequence 0, 1, 2.
+ * (The second tree box named "MoreOrbs" actually gives makeCourseBuyMax and touches no orbs.)
  */
 export function orbTier(box: BoxInfo | undefined | null): number | null {
   if (!box) return null;
   if (box.upgrade === "GLOBAL:unlockJiggleDrops") return 0;
   if (box.upgrade === "GLOBAL:moreRefreshOrbs") return 1;
+  if (box.upgrade === "Movement:OmniDash") return 2;
   return null;
 }
 

@@ -1,7 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
 import { Art, artIcons, artTiles, type ArtIndex } from "./Art";
 import { BoxCard, FloorCard, Hint, type Listed } from "./Cards";
-import { capturedStates, inState, orbTier, type Marker, type StatePick, type TreeStep, type UltraData, type Zip } from "./data";
+import {
+  capturedStates,
+  inState,
+  orbTier,
+  type Marker,
+  type StatePick,
+  type TreeStep,
+  type UltraData,
+  type Zip,
+} from "./data";
 import { floorPath, floorY, fmt, where, type P } from "./geometry";
 import { Legend } from "./Legend";
 import { Hazards, Level, levelPaths, type LevelShow } from "./Level";
@@ -36,7 +45,7 @@ export function UltraMap() {
   const [world, setWorld] = useState<StatePick>({});
   const [treeTip, setTreeTip] = useState<TreeStep | null>(null);
   const [boxTip, setBoxTip] = useState<Marker | null>(null);
-  const [hoverBox, setHoverBox] = useState<Marker | null>(null);
+  const [hoverMark, setHoverMark] = useState<Marker | null>(null);
   const [cursor, setCursor] = useState<P | null>(null);
   const [hoverFloor, setHoverFloor] = useState(-1);
   const [floor, setFloor] = useState(-1);
@@ -183,22 +192,22 @@ export function UltraMap() {
     setCursor(p);
     if (!p) {
       setHoverFloor(-1);
-      setHoverBox(null);
+      setHoverMark(null);
       return;
     }
     if (hoverReach === null) return;
     setHoverFloor(floorAt(p, hoverReach));
-    let box: Marker | null = null,
+    let mark: Marker | null = null,
       best = hoverReach;
     for (const m of markers) {
-      if (m.kind !== "box" || !markerKinds[layerOf(m)]) continue;
+      if ((m.kind !== "box" && m.seq == null) || !markerKinds[layerOf(m)]) continue;
       const d = Math.hypot(m.x - p[0], m.y - p[1]);
       if (d < best) {
         best = d;
-        box = m;
+        mark = m;
       }
     }
-    setHoverBox(box);
+    setHoverMark(mark);
   };
 
   const { svg, view, setView, size, handlers } = usePanZoom({ onTap, onPointer });
@@ -219,9 +228,11 @@ export function UltraMap() {
   const hover = data && hoverFloor >= 0 && hoverFloor !== floor ? data.floors[hoverFloor] : null;
   const labels = (data?.labels ?? []).filter((l) => inState(l.when, world));
   const showLabel = (name: string) => layers[name.startsWith("bonus") ? "bonusLabels" : "labels"];
-  // The hovered box wins; a clicked box (its card open) keeps the highlight until cleared.
-  const hiBox = hoverBox ?? boxTip;
-  const hiTier = orbTier(hiBox?.box);
+  // A hovered refill orb looks up the box that unlocks its tier; else the hovered box wins, and a clicked box
+  // (its card open) keeps the highlight until cleared.
+  const hoverOrb = hoverMark?.seq != null ? hoverMark : null;
+  const hiBox = hoverOrb ? (markers.find((m) => orbTier(m.box) === hoverOrb.seq) ?? null) : (hoverMark ?? boxTip);
+  const hiTier = hoverOrb ? hoverOrb.seq : orbTier(hiBox?.box);
   const hiOrbs = useMemo(() => {
     if (hiTier == null) return { dash: 0, jump: 0, full: 0 };
     const c = { dash: 0, jump: 0, full: 0 };
@@ -325,7 +336,7 @@ export function UltraMap() {
             checkpointAreas={layers.checkpointAreas}
             showSteps={layers.tree}
             hiTier={hiTier}
-            hiBox={hiBox}
+            hiBox={hiTier != null ? hiBox : null}
           />
         </svg>
         <Legend
