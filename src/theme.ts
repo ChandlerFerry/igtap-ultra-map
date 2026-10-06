@@ -19,6 +19,7 @@ export const bandIndex = (drop: number) => BANDS.findIndex(([top]) => drop < top
 
 export const SHIFT_COLOR = "#76ff03";
 export const RING_COLOR = "#18ffff";
+export const ORB_HI_COLOR = "#18ffff";
 export const IN_COLOR = "#80deea";
 export const ULTRA_COLOR = "#ffd54f";
 export const ZIP_COLOR = "#ffb74d";

@@ -14,7 +14,8 @@ namespace IGTAP.EngineSim.Ultras
             [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] float[][] area = null,
             [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string when = null,
             [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] float[] spawn = null,
-            [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] BoxInfo box = null);
+            [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] BoxInfo box = null,
+            [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] int? seq = null);
 
         static float Round(float v) { return (float)Math.Round(v, 1); }
 
@@ -554,7 +555,9 @@ namespace IGTAP.EngineSim.Ultras
                             y = Round((b.Where((_, i) => i % 2 == 1).Min() + b.Where((_, i) => i % 2 == 1).Max()) / 2f);
                         }
                     }
-                    markers.Add(new Marker(kind, name, x, y, area, when.TryGetValue(o.GetProperty("id").GetInt32(), out string state) ? state : null, spawn, info));
+                    int? seq = null;
+                    if (kind is "dashRefill" or "jumpRefill" or "fullRefill" && Fields(c).TryGetValue("ActivationSequence", out JsonElement aseq) && aseq.ValueKind == JsonValueKind.Number) seq = aseq.GetInt32();
+                    markers.Add(new Marker(kind, name, x, y, area, when.TryGetValue(o.GetProperty("id").GetInt32(), out string state) ? state : null, spawn, info, seq));
                     break;
                 }
             }

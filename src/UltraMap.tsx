@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Art, artIcons, artTiles, type ArtIndex } from "./Art";
 import { BoxCard, FloorCard, Hint, type Listed } from "./Cards";
-import { capturedStates, inState, type Marker, type StatePick, type TreeStep, type UltraData, type Zip } from "./data";
+import { capturedStates, inState, orbTier, type Marker, type StatePick, type TreeStep, type UltraData, type Zip } from "./data";
 import { floorPath, floorY, fmt, where, type P } from "./geometry";
 import { Legend } from "./Legend";
 import { Hazards, Level, levelPaths, type LevelShow } from "./Level";
@@ -36,6 +36,7 @@ export function UltraMap() {
   const [world, setWorld] = useState<StatePick>({});
   const [treeTip, setTreeTip] = useState<TreeStep | null>(null);
   const [boxTip, setBoxTip] = useState<Marker | null>(null);
+  const [hoverBox, setHoverBox] = useState<Marker | null>(null);
   const [cursor, setCursor] = useState<P | null>(null);
   const [hoverFloor, setHoverFloor] = useState(-1);
   const [floor, setFloor] = useState(-1);
@@ -180,8 +181,24 @@ export function UltraMap() {
 
   const onPointer = (p: P | null, hoverReach: number | null) => {
     setCursor(p);
-    if (!p) setHoverFloor(-1);
-    else if (hoverReach !== null) setHoverFloor(floorAt(p, hoverReach));
+    if (!p) {
+      setHoverFloor(-1);
+      setHoverBox(null);
+      return;
+    }
+    if (hoverReach === null) return;
+    setHoverFloor(floorAt(p, hoverReach));
+    let box: Marker | null = null,
+      best = hoverReach;
+    for (const m of markers) {
+      if (m.kind !== "box" || !markerKinds[layerOf(m)]) continue;
+      const d = Math.hypot(m.x - p[0], m.y - p[1]);
+      if (d < best) {
+        best = d;
+        box = m;
+      }
+    }
+    setHoverBox(box);
   };
 
   const { svg, view, setView, size, handlers } = usePanZoom({ onTap, onPointer });
@@ -202,6 +219,16 @@ export function UltraMap() {
   const hover = data && hoverFloor >= 0 && hoverFloor !== floor ? data.floors[hoverFloor] : null;
   const labels = (data?.labels ?? []).filter((l) => inState(l.when, world));
   const showLabel = (name: string) => layers[name.startsWith("bonus") ? "bonusLabels" : "labels"];
+  // The hovered box wins; a clicked box (its card open) keeps the highlight until cleared.
+  const hiBox = hoverBox ?? boxTip;
+  const hiTier = orbTier(hiBox?.box);
+  const hiOrbs = useMemo(() => {
+    if (hiTier == null) return { dash: 0, jump: 0, full: 0 };
+    const c = { dash: 0, jump: 0, full: 0 };
+    for (const m of markers)
+      if (m.seq === hiTier) c[m.kind === "dashRefill" ? "dash" : m.kind === "jumpRefill" ? "jump" : "full"]++;
+    return c;
+  }, [markers, hiTier]);
 
   return (
     <div className="app">
@@ -297,6 +324,8 @@ export function UltraMap() {
             areas={layers.areas}
             checkpointAreas={layers.checkpointAreas}
             showSteps={layers.tree}
+            hiTier={hiTier}
+            hiBox={hiBox}
           />
         </svg>
         <Legend
@@ -316,7 +345,11 @@ export function UltraMap() {
         />
         <div className="overlay">
           {boxTip?.box ? (
-            <BoxCard marker={boxTip} onClose={() => setBoxTip(null)} />
+            <BoxCard
+              marker={boxTip}
+              orbs={hiBox === boxTip && hiTier != null ? { tier: hiTier, ...hiOrbs } : null}
+              onClose={() => setBoxTip(null)}
+            />
           ) : f && data ? (
             <FloorCard
               floor={f}

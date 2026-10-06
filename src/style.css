@@ -52,6 +52,18 @@ svg :is(path, rect, circle) {
   stroke: #07111f;
   paint-order: stroke;
 }
+.orbHi {
+  animation: orbPulse 1.1s ease-in-out infinite;
+}
+@keyframes orbPulse {
+  0%,
+  100% {
+    stroke-opacity: 1;
+  }
+  50% {
+    stroke-opacity: 0.25;
+  }
+}
 .app {
   display: flex;
   flex-direction: column;

@@ -38,6 +38,8 @@ export type Marker = {
   spawn?: number[];
   when?: string | null;
   box?: BoxInfo;
+  /** Refill orbs only: JiggleDropScript.ActivationSequence (0-2). An orb is usable when unlockJiggleDrops + moreRefreshOrbs > seq. */
+  seq?: number | null;
 };
 
 export type Zip = {
@@ -76,6 +78,19 @@ export type UltraData = {
 
 export const capturedStates = (states: WorldState[] | undefined): StatePick =>
   Object.fromEntries((states ?? []).map((s) => [s.id, s.current]));
+
+/**
+ * The ActivationSequence tier a box's upgrade unlocks on the refill orbs, or null if it affects none.
+ * An orb is usable when `unlockJiggleDrops + moreRefreshOrbs > ActivationSequence` (JiggleDropScript.SetActiveVisualState),
+ * so in the canonical buy order the jiggle-drop unlock turns on the sequence-0 orbs, the more-refresh-orbs box the
+ * sequence-1 orbs, and Area 1's overgrowth (a world state, not a box) the sequence-2 ones.
+ */
+export function orbTier(box: BoxInfo | undefined | null): number | null {
+  if (!box) return null;
+  if (box.upgrade === "GLOBAL:unlockJiggleDrops") return 0;
+  if (box.upgrade === "GLOBAL:moreRefreshOrbs") return 1;
+  return null;
+}
 
 export function inState(when: string | null | undefined, pick: StatePick) {
   if (!when) return true;

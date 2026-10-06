@@ -2,7 +2,7 @@ import { memo } from "react";
 import type { MarkIcon } from "./Art";
 import type { BoxInfo, Label, Marker, TreeStep } from "./data";
 import { circlePath, fy, polyPath, starPath } from "./geometry";
-import { BG, BOX_KINDS, GROWN_COLOR, LABEL_COLOR, MARKERS, type Look } from "./theme";
+import { BG, BOX_KINDS, GROWN_COLOR, LABEL_COLOR, MARKERS, ORB_HI_COLOR, type Look } from "./theme";
 
 const LABEL_PX = 3;
 const GATES = new Set(["start", "end", "exit", "falseEnding", "trueEnding"]);
@@ -67,8 +67,9 @@ function BoxLabel({ m, color, x, y, px }: { m: Marker; color: string; x: number;
   );
 }
 
-function Mark({ m, look, px, icon }: { m: Marker; look: Look; px: number; icon?: MarkIcon }) {
+function Mark({ m, look, px, icon, dim }: { m: Marker; look: Look; px: number; icon?: MarkIcon; dim?: boolean }) {
   const title = <title>{`${look.text}: ${m.name}`}</title>;
+  const opacity = dim ? 0.25 : 1;
   if (m.spawn)
     return (
       <rect
@@ -92,6 +93,7 @@ function Mark({ m, look, px, icon }: { m: Marker; look: Look; px: number; icon?:
         y={fy(m.y + icon.dy + icon.h / 2)}
         width={icon.w}
         height={icon.h}
+        opacity={opacity}
       >
         {title}
       </image>
@@ -136,6 +138,7 @@ function Mark({ m, look, px, icon }: { m: Marker; look: Look; px: number; icon?:
         fillOpacity={look.shape === "circle" ? 0.8 : 1}
         stroke={BG}
         strokeWidth={1}
+        opacity={dim ? 0.25 : 1}
       >
         {title}
       </path>
@@ -153,6 +156,8 @@ export const Marks = memo(function Marks({
   checkpointAreas,
   showSteps,
   icons,
+  hiTier,
+  hiBox,
 }: {
   markers: Marker[];
   steps: TreeStep[];
@@ -162,6 +167,10 @@ export const Marks = memo(function Marks({
   checkpointAreas: boolean;
   showSteps: boolean;
   icons: Record<string, MarkIcon>;
+  /** The ActivationSequence tier of refill orbs to light up (hovered orb-affecting box), or null for none. */
+  hiTier?: number | null;
+  /** The hovered box marker, ringed so the link box → orbs is visible. */
+  hiBox?: Marker | null;
 }) {
   return (
     <g>
@@ -181,8 +190,39 @@ export const Marks = memo(function Marks({
         )}
       {markers.map((m, i) => {
         const look = lookOf(m);
-        return look && kinds[layerOf(m)] ? <Mark key={i} m={m} look={look} px={px} icon={icons[m.kind]} /> : null;
+        if (!look || !kinds[layerOf(m)]) return null;
+        const refill = m.kind === "dashRefill" || m.kind === "jumpRefill" || m.kind === "fullRefill";
+        const on = hiTier != null && refill && m.seq === hiTier;
+        const dim = hiTier != null && refill && !on;
+        return (
+          <g key={i}>
+            <Mark m={m} look={look} px={px} icon={icons[m.kind]} dim={dim} />
+            {on && (
+              <circle
+                cx={m.x}
+                cy={fy(m.y)}
+                r={12 * px}
+                fill="none"
+                stroke={ORB_HI_COLOR}
+                strokeWidth={2}
+                className="orbHi"
+                pointerEvents="none"
+              />
+            )}
+          </g>
+        );
       })}
+      {hiBox && kinds[layerOf(hiBox)] && (
+        <circle
+          cx={hiBox.x}
+          cy={fy(hiBox.y)}
+          r={16 * px}
+          fill="none"
+          stroke={ORB_HI_COLOR}
+          strokeWidth={2}
+          pointerEvents="none"
+        />
+      )}
       {showSteps &&
         steps.map((t, i) => (
           <text

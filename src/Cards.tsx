@@ -16,7 +16,15 @@ function Close({ label, onClick }: { label: string; onClick: () => void }) {
   );
 }
 
-export function BoxCard({ marker, onClose }: { marker: Marker; onClose: () => void }) {
+export function BoxCard({
+  marker,
+  orbs,
+  onClose,
+}: {
+  marker: Marker;
+  orbs?: { tier: number; dash: number; jump: number; full: number } | null;
+  onClose: () => void;
+}) {
   const b = marker.box!;
   return (
     <div className="panel">
@@ -27,6 +35,12 @@ export function BoxCard({ marker, onClose }: { marker: Marker; onClose: () => vo
       <div className="muted">
         Gives {b.gives} ({b.upgrade}) · {boxCost(b)} · {boxUses(b)}
       </div>
+      {orbs && (
+        <div className="muted">
+          Activates {orbs.dash + orbs.jump + orbs.full} refill orbs (sequence {orbs.tier}): {orbs.dash} dash ·{" "}
+          {orbs.jump} jump · {orbs.full} full — highlighted on the map
+        </div>
+      )}
       <div className="muted">
         {b.secret ? `Secret${secretNumber(b)} · ` : ""}
         {b.ach ? `${b.ach} · ` : ""}
