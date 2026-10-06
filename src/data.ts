@@ -27,6 +27,8 @@ export type BoxInfo = {
   tree: boolean;
   number?: string | null;
   ach?: string | null;
+  /** Buy-max / exempt-from-prestige boxes: the course they target (upgradeBox.NumberOfCourseToAffect). */
+  course?: string | null;
 };
 
 export type Marker = {

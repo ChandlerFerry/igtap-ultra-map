@@ -25,7 +25,10 @@ export const boxUses = (b: BoxInfo) => (b.cap === 1 ? "one-off" : `repeatable ×
 export const secretNumber = (b: BoxInfo) => (b.number ? ` #${b.number}` : "");
 // The game's object names are often stale copy-pastes (a "MoreOrbs" box that gives buy max), so name boxes by what they give.
 export const boxName = (b: BoxInfo) =>
-  b.gives.replace(/ \((global|local|movement ability)\)$/, "").replace(/^./, (c) => c.toUpperCase());
+  b.gives
+    .replace(/ \((global|local|movement ability)\)$/, "")
+    .replace(/\bcourse\b/, b.course ? `course ${b.course}` : "course")
+    .replace(/^./, (c) => c.toUpperCase());
 const markName = (m: Marker) => (m.box ? boxName(m.box) : m.name);
 export const freshText = (b: BoxInfo) => (b.fresh ? "in the fresh world" : "only later");
 

@@ -410,7 +410,8 @@ namespace IGTAP.EngineSim.Ultras
         internal sealed record BoxInfo(string upgrade, string gives, double cost, string currency, int cap, string category,
             bool fresh, bool secret, bool tree,
             [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string number = null,
-            [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string ach = null);
+            [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string ach = null,
+            [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string course = null);
 
         static BoxInfo BuyInfo(JsonElement c, JsonElement o, bool tree)
         {
@@ -434,8 +435,11 @@ namespace IGTAP.EngineSim.Ultras
                 : cost <= 0 && cap == 1 ? (BoxBoosts.Contains(tail) ? "bonusBoost" : "bonusUnique")
                 : ach != null ? "achievement"
                 : cap == 1 ? "unlock" : "course";
+            // The course a buy-max / exempt-from-prestige box targets (upgradeBox.NumberOfCourseToAffect).
+            string course = tail is "makeCourseBuyMax" or "exemptCourseFromAtomPrestige" && f.TryGetValue("NumberOfCourseToAffect", out JsonElement n)
+                && n.ValueKind == JsonValueKind.String && n.GetString() is { Length: > 0 } nc ? nc : null;
             return new BoxInfo(upgrade, gives, cost, currency, cap, category,
-                o.GetProperty("activeInHierarchy").GetBoolean(), secret, tree, number, ach);
+                o.GetProperty("activeInHierarchy").GetBoolean(), secret, tree, number, ach, course);
         }
 
         static bool TreeOf(JsonElement c, JsonElement o, HashSet<int> trees, Dictionary<int, int> parents)
