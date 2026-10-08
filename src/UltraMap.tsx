@@ -300,7 +300,7 @@ export function UltraMap() {
           <Art tiles={tilesFor({ ...world, tree: "grown" }, layers.tree)} />
           {(!artShown || layers.shapes) && <Level paths={level} show={levelShow} px={px} />}
           {artShown && !layers.shapes && layers.spikes && <Hazards paths={level} show={levelShow} />}
-          {layers.tree && <TreeSegments paths={treePaths} steps={treeSteps} hi={hoverTree ?? treeTip} />}
+          {layers.tree && <TreeSegments paths={treePaths} steps={treeSteps} hi={hoverTree ?? treeTip} px={px} />}
           {data?.kinds.map(
             (k, i) =>
               layers[`floor:${k}`] && (

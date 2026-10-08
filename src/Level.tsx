@@ -221,35 +221,55 @@ export const segmentPaths = (grown: Solid[], grownStep: number[], steps: TreeSte
 
 const samePurchase = (a: TreeStep, b: TreeStep | null) => !!b && a.tree === b.tree && a.step === b.step;
 
-/** Tree segments filled by purchase order within their tree; the segments of the hovered/tapped purchase light up together. */
+/**
+ * Tree segments filled and numbered by the purchase that grows them, in order within their tree; the segments of the
+ * hovered/tapped purchase light up together.
+ */
 export const TreeSegments = memo(function TreeSegments({
   paths,
   steps,
   hi,
+  px,
 }: {
   paths: string[];
   steps: TreeStep[];
   hi: TreeStep | null;
+  px: number;
 }) {
   const last: Record<number, number> = {};
   for (const t of steps) last[t.tree] = Math.max(last[t.tree] ?? 1, t.step);
+  const colorOf = (t: TreeStep) => (t.step ? treeStepColor((t.step - 1) / Math.max(1, last[t.tree] - 1)) : GROWN_COLOR);
   return (
     <g pointerEvents="none">
       {steps.map((t, i) => {
-        const color = t.step ? treeStepColor((t.step - 1) / Math.max(1, last[t.tree] - 1)) : GROWN_COLOR;
         const on = samePurchase(t, hi);
         return (
           <path
             key={i}
             d={paths[i]}
-            fill={color}
+            fill={colorOf(t)}
             fillOpacity={on ? 0.75 : hi ? 0.2 : 0.45}
-            stroke={on ? WHITE : color}
+            stroke={on ? WHITE : colorOf(t)}
             strokeWidth={on ? 3 : 1.5}
             strokeLinejoin="round"
           />
         );
       })}
+      {steps.map((t, i) => (
+        <text
+          key={i}
+          x={t.x}
+          y={fy(t.y) + 5 * px}
+          fill={samePurchase(t, hi) ? WHITE : colorOf(t)}
+          fontSize={14 * px}
+          fontWeight={700}
+          textAnchor="middle"
+          className="halo"
+          strokeWidth={3 * px}
+        >
+          {t.step || "?"}
+        </text>
+      ))}
     </g>
   );
 });
