@@ -70,7 +70,7 @@ function sections(kinds: string[], icons: Record<string, MarkIcon>): [string, Ro
         { layer: "art", text: "Game art", swatch: glyph("▦") },
         {
           layer: "tree",
-          text: "Tree segments by purchase #, first → last",
+          text: "Tree segments #, early → late buys",
           swatch: (
             <i
               className="bands"

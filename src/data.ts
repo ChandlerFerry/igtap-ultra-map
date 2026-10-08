@@ -53,7 +53,20 @@ export type Zip = {
   when?: string | null;
 };
 
-export type TreeStep = { tree: number; step: number; via: string | null; box: string | null; x: number; y: number };
+/**
+ * One tree segment. seg: its index in TreeController.TreeSegments; step: how many tree buys deep it is (0 = unreached);
+ * via/viaAt: the box whose purchase grows it and that box's position; x/y: the segment's center.
+ */
+export type TreeStep = {
+  tree: number;
+  seg: number;
+  step: number;
+  via: string | null;
+  viaAt?: number[] | null;
+  box: string | null;
+  x: number;
+  y: number;
+};
 
 export type Label = { name: string; x: number; y: number; when?: string | null };
 

@@ -40,10 +40,9 @@ function boxTitle(m: Marker) {
   );
 }
 
-export const treeStepText = (t: TreeStep) =>
-  t.step
-    ? `Tree ${t.tree} · purchase ${t.step} grows this${t.via ? ` (bought at ${t.via})` : ""}${t.box ? `; its box: ${t.box}` : ""}`
-    : `Tree ${t.tree} · no box found that grows this`;
+export const treeStepText = (t: TreeStep, grower: Marker | null) =>
+  `Tree ${t.tree} · segment ${t.seg} · ` +
+  (t.via ? `grown by buying ${grower?.box ? boxName(grower.box) : t.via}` : "no box found that grows this");
 
 function shapePath(shape: Look["shape"], x: number, y: number, s: number) {
   if (shape === "diamond") return `M${x} ${y - s * 1.3}L${x + s} ${y}L${x} ${y + s * 1.3}L${x - s} ${y}Z`;

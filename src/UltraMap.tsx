@@ -125,6 +125,19 @@ export function UltraMap() {
     () => (data?.grownStep ? segmentPaths(data.grown, data.grownStep, treeSteps) : []),
     [data, treeSteps],
   );
+  // The box marker that grows each segment: the box nearest its grow box's position (markers sit at the trigger's center).
+  const growers = useMemo(() => {
+    const boxes = (data?.markers ?? []).filter((m) => m.kind === "box");
+    return treeSteps.map((t) => {
+      const at = t.viaAt;
+      if (!at) return null;
+      return boxes.reduce<Marker | null>(
+        (best, m) =>
+          !best || Math.hypot(m.x - at[0], m.y - at[1]) < Math.hypot(best.x - at[0], best.y - at[1]) ? m : best,
+        null,
+      );
+    });
+  }, [data, treeSteps]);
   const zips = useMemo(() => (data?.zips ?? []).filter((z) => inState(z.when, world)), [data, world]);
   const icons = useMemo(() => artIcons(art), [art]);
   const levelShow = useMemo<LevelShow>(
@@ -243,6 +256,8 @@ export function UltraMap() {
   const hoverOrb = hoverMark?.seq != null ? hoverMark : null;
   const hiBox = hoverOrb ? (markers.find((m) => orbTier(m.box) === hoverOrb.seq) ?? null) : (hoverMark ?? boxTip);
   const hiTier = hoverOrb ? hoverOrb.seq : orbTier(hiBox?.box);
+  const treeHi = hoverTree ?? treeTip;
+  const treeGrower = treeHi ? growers[treeSteps.indexOf(treeHi)] : null;
   const hiOrbs = useMemo(() => {
     if (hiTier == null) return { dash: 0, jump: 0, full: 0 };
     const c = { dash: 0, jump: 0, full: 0 };
@@ -300,7 +315,7 @@ export function UltraMap() {
           <Art tiles={tilesFor({ ...world, tree: "grown" }, layers.tree)} />
           {(!artShown || layers.shapes) && <Level paths={level} show={levelShow} px={px} />}
           {artShown && !layers.shapes && layers.spikes && <Hazards paths={level} show={levelShow} />}
-          {layers.tree && <TreeSegments paths={treePaths} steps={treeSteps} hi={hoverTree ?? treeTip} px={px} />}
+          {layers.tree && <TreeSegments paths={treePaths} steps={treeSteps} hi={treeHi} grower={treeGrower} px={px} />}
           {data?.kinds.map(
             (k, i) =>
               layers[`floor:${k}`] && (
@@ -385,7 +400,8 @@ export function UltraMap() {
             />
           ) : (
             <Hint
-              tree={hoverTree ?? treeTip}
+              tree={treeHi}
+              grower={treeGrower}
               hover={hover ? `Floor ${where(hover)} · ${pairCounts(byFloor, hoverFloor)}` : null}
             />
           )}

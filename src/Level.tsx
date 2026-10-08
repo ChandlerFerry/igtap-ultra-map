@@ -1,10 +1,11 @@
 import { memo } from "react";
-import { inState, type Solid, type StatePick, type TreeStep } from "./data";
+import { inState, type Marker, type Solid, type StatePick, type TreeStep } from "./data";
 import { circlePath, fy, polyPath } from "./geometry";
 import {
   BOX_COLOR,
   GROWN_COLOR,
   LEVEL_COLOR,
+  ORB_HI_COLOR,
   SPIKE_COLOR,
   SPRING_COLOR,
   TONE_COLORS,
@@ -219,21 +220,25 @@ export const segmentPaths = (grown: Solid[], grownStep: number[], steps: TreeSte
     steps.map(() => ""),
   );
 
-const samePurchase = (a: TreeStep, b: TreeStep | null) => !!b && a.tree === b.tree && a.step === b.step;
+/** Grown by the same box (box names repeat, so compare where it is). */
+const sameGrower = (a: TreeStep, b: TreeStep | null) =>
+  !!a.viaAt && !!b?.viaAt && a.viaAt[0] === b.viaAt[0] && a.viaAt[1] === b.viaAt[1];
 
 /**
- * Tree segments filled and numbered by the purchase that grows them, in order within their tree; the segments of the
- * hovered/tapped purchase light up together.
+ * Tree segments numbered by their in-game index and filled by how many tree buys deep they are; hovering/tapping one
+ * lights up every segment its box grows and rings that box.
  */
 export const TreeSegments = memo(function TreeSegments({
   paths,
   steps,
   hi,
+  grower,
   px,
 }: {
   paths: string[];
   steps: TreeStep[];
   hi: TreeStep | null;
+  grower: Marker | null;
   px: number;
 }) {
   const last: Record<number, number> = {};
@@ -242,7 +247,7 @@ export const TreeSegments = memo(function TreeSegments({
   return (
     <g pointerEvents="none">
       {steps.map((t, i) => {
-        const on = samePurchase(t, hi);
+        const on = sameGrower(t, hi);
         return (
           <path
             key={i}
@@ -260,16 +265,19 @@ export const TreeSegments = memo(function TreeSegments({
           key={i}
           x={t.x}
           y={fy(t.y) + 5 * px}
-          fill={samePurchase(t, hi) ? WHITE : colorOf(t)}
+          fill={sameGrower(t, hi) ? WHITE : colorOf(t)}
           fontSize={14 * px}
           fontWeight={700}
           textAnchor="middle"
           className="halo"
           strokeWidth={3 * px}
         >
-          {t.step || "?"}
+          {t.seg}
         </text>
       ))}
+      {grower && (
+        <circle cx={grower.x} cy={fy(grower.y)} r={16 * px} fill="none" stroke={ORB_HI_COLOR} strokeWidth={2} />
+      )}
     </g>
   );
 });

@@ -108,13 +108,13 @@ export function FloorCard({
   );
 }
 
-export function Hint({ tree, hover }: { tree: TreeStep | null; hover: string | null }) {
+export function Hint({ tree, grower, hover }: { tree: TreeStep | null; grower: Marker | null; hover: string | null }) {
   return (
     <span className="muted">
       {tree
-        ? treeStepText(tree)
+        ? treeStepText(tree, grower)
         : (hover ??
-          "Tap a buy box for what it is, gives and costs, a floor for where its ultras go and come from, or a tree segment for the purchase that grows it.")}
+          "Tap a buy box for what it is, gives and costs, a floor for where its ultras go and come from, or a tree segment for the box that grows it.")}
     </span>
   );
 }

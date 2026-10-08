@@ -303,8 +303,11 @@ namespace IGTAP.EngineSim.Ultras
             }
             int Ref(JsonElement? v) => v is { ValueKind: JsonValueKind.Object } r && r.TryGetProperty("$ref", out JsonElement id) ? id.GetInt32() : 0;
             string Name(int objectId) => byId.TryGetValue(objectId, out JsonElement o) ? o.GetProperty("name").GetString() : "?";
+            float[] Position(int objectId) => byId.TryGetValue(objectId, out JsonElement o) && o.GetProperty("position") is var p
+                ? new[] { Round(p.GetProperty("x").GetSingle() - origin.x), Round(p.GetProperty("y").GetSingle() - origin.y) }
+                : null;
 
-            var steps = new Dictionary<int, (int tree, int step, string via, string box)>();
+            var steps = new Dictionary<int, (int tree, int seg, int step, string via, float[] viaAt, string box)>();
             foreach (JsonElement o in objects)
                 foreach (JsonElement tc in o.GetProperty("components").EnumerateArray())
                 {
@@ -323,7 +326,7 @@ namespace IGTAP.EngineSim.Ultras
                     {
                         if (index < 0 || index >= segs.Count || segs[index] is not { } s || !seen.Add(index)) return;
                         int box = Ref(Field(s, "box"));
-                        steps[owner[s.GetProperty("id").GetInt32()]] = (tree, step, Name(via), box != 0 ? Name(box) : null);
+                        steps[owner[s.GetProperty("id").GetInt32()]] = (tree, index, step, Name(via), Position(via), box != 0 ? Name(box) : null);
                         if (box != 0) queue.Enqueue((box, step + 1));
                         if (Field(s, "autoTriggerNext") is { ValueKind: JsonValueKind.True }) Grow(Field(s, "NextSegmentToAutoTriggerIndex")?.GetInt32() ?? -1, step, via);
                     }
@@ -334,7 +337,7 @@ namespace IGTAP.EngineSim.Ultras
                     }
                     for (int index = 0; index < segs.Count; index++)
                         if (segs[index] is { } s && !seen.Contains(index))
-                            steps[owner[s.GetProperty("id").GetInt32()]] = (tree, 0, null, Ref(Field(s, "box")) is var b and not 0 ? Name(b) : null);
+                            steps[owner[s.GetProperty("id").GetInt32()]] = (tree, index, 0, null, null, Ref(Field(s, "box")) is var b and not 0 ? Name(b) : null);
                 }
 
             var parent = objects.ToDictionary(o => o.GetProperty("id").GetInt32(), o => o.GetProperty("parent").GetInt32());
@@ -379,8 +382,10 @@ namespace IGTAP.EngineSim.Ultras
             var labels = order.Select(id => (object)new
             {
                 tree = steps[id].tree,
+                seg = steps[id].seg,
                 step = steps[id].step,
                 via = steps[id].via,
+                viaAt = steps[id].viaAt,
                 box = steps[id].box,
                 x = Round((extent[id].x0 + extent[id].x1) / 2f),
                 y = Round((extent[id].y0 + extent[id].y1) / 2f)
