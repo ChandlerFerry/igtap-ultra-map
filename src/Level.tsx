@@ -220,6 +220,36 @@ export const segmentPaths = (grown: Solid[], grownStep: number[], steps: TreeSte
     steps.map(() => ""),
   );
 
+export type SegmentLabel = { step: number; x: number; y: number };
+
+// A segment's ground can sit in far-apart pieces (tree 1 segment 17 owns a long-fall collider ~6000 u away), so label
+// each cluster of its shapes, not the center of them all.
+const CLUSTER_GAP = 1000;
+
+/** Where to number each segment: the center of every cluster of its shapes. */
+export function segmentLabels(grown: Solid[], grownStep: number[]): SegmentLabel[] {
+  const clusters: { step: number; b: number[] }[] = [];
+  grown.forEach((s, i) => {
+    const xs = s.p.filter((_, k) => k % 2 === 0),
+      ys = s.p.filter((_, k) => k % 2 === 1),
+      b = [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)];
+    // ponytail: single-pass merge, a shape bridging two earlier clusters won't join them; fine for 1-3 shapes a segment.
+    const near = clusters.find(
+      (c) =>
+        c.step === grownStep[i] && Math.max(c.b[0] - b[2], b[0] - c.b[2], c.b[1] - b[3], b[1] - c.b[3]) < CLUSTER_GAP,
+    );
+    if (near)
+      near.b = [
+        Math.min(near.b[0], b[0]),
+        Math.min(near.b[1], b[1]),
+        Math.max(near.b[2], b[2]),
+        Math.max(near.b[3], b[3]),
+      ];
+    else clusters.push({ step: grownStep[i], b });
+  });
+  return clusters.map(({ step, b }) => ({ step, x: (b[0] + b[2]) / 2, y: (b[1] + b[3]) / 2 }));
+}
+
 /** Grown by the same box (box names repeat, so compare where it is). */
 const sameGrower = (a: TreeStep, b: TreeStep | null) =>
   !!a.viaAt && !!b?.viaAt && a.viaAt[0] === b.viaAt[0] && a.viaAt[1] === b.viaAt[1];
@@ -230,12 +260,14 @@ const sameGrower = (a: TreeStep, b: TreeStep | null) =>
  */
 export const TreeSegments = memo(function TreeSegments({
   paths,
+  labels,
   steps,
   hi,
   grower,
   px,
 }: {
   paths: string[];
+  labels: SegmentLabel[];
   steps: TreeStep[];
   hi: TreeStep | null;
   grower: Marker | null;
@@ -260,19 +292,19 @@ export const TreeSegments = memo(function TreeSegments({
           />
         );
       })}
-      {steps.map((t, i) => (
+      {labels.map((l, i) => (
         <text
           key={i}
-          x={t.x}
-          y={fy(t.y) + 5 * px}
-          fill={sameGrower(t, hi) ? WHITE : colorOf(t)}
+          x={l.x}
+          y={fy(l.y) + 5 * px}
+          fill={sameGrower(steps[l.step], hi) ? WHITE : colorOf(steps[l.step])}
           fontSize={14 * px}
           fontWeight={700}
           textAnchor="middle"
           className="halo"
           strokeWidth={3 * px}
         >
-          {t.seg}
+          {steps[l.step].seg}
         </text>
       ))}
       {grower && (

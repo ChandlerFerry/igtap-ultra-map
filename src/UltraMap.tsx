@@ -13,7 +13,7 @@ import {
 } from "./data";
 import { floorPath, floorY, fmt, insidePoly, where, type P } from "./geometry";
 import { Legend } from "./Legend";
-import { Hazards, Level, levelPaths, segmentPaths, TreeSegments, type LevelShow } from "./Level";
+import { Hazards, Level, levelPaths, segmentLabels, segmentPaths, TreeSegments, type LevelShow } from "./Level";
 import { Labels, layerOf, Marks } from "./Marks";
 import { ArrowDefs, DropLabel, FloorPairs, UltraLegs } from "./PairLayers";
 import { decodePairs, groupByFloor, isShiftOnly, matches, pairCounts, ultraLegs, type Pair } from "./pairs";
@@ -125,6 +125,7 @@ export function UltraMap() {
     () => (data?.grownStep ? segmentPaths(data.grown, data.grownStep, treeSteps) : []),
     [data, treeSteps],
   );
+  const treeLabels = useMemo(() => (data?.grownStep ? segmentLabels(data.grown, data.grownStep) : []), [data]);
   // The box marker that grows each segment: the box nearest its grow box's position (markers sit at the trigger's center).
   const growers = useMemo(() => {
     const boxes = (data?.markers ?? []).filter((m) => m.kind === "box");
@@ -315,7 +316,16 @@ export function UltraMap() {
           <Art tiles={tilesFor({ ...world, tree: "grown" }, layers.tree)} />
           {(!artShown || layers.shapes) && <Level paths={level} show={levelShow} px={px} />}
           {artShown && !layers.shapes && layers.spikes && <Hazards paths={level} show={levelShow} />}
-          {layers.tree && <TreeSegments paths={treePaths} steps={treeSteps} hi={treeHi} grower={treeGrower} px={px} />}
+          {layers.tree && (
+            <TreeSegments
+              paths={treePaths}
+              labels={treeLabels}
+              steps={treeSteps}
+              hi={treeHi}
+              grower={treeGrower}
+              px={px}
+            />
+          )}
           {data?.kinds.map(
             (k, i) =>
               layers[`floor:${k}`] && (
