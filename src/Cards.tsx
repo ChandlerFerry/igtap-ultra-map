@@ -114,7 +114,7 @@ export function Hint({ tree, hover }: { tree: TreeStep | null; hover: string | n
       {tree
         ? treeStepText(tree)
         : (hover ??
-          "Tap a buy box for what it is, gives and costs, a floor for where its ultras go and come from, or a tree number for what grows it.")}
+          "Tap a buy box for what it is, gives and costs, a floor for where its ultras go and come from, or a tree segment for the purchase that grows it.")}
     </span>
   );
 }

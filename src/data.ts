@@ -71,6 +71,8 @@ export type UltraData = {
   pairFields: string[];
   pairs: number[][];
   grown: Solid[];
+  /** Per grown shape: the index into treeSteps of the tree segment it belongs to. */
+  grownStep?: number[];
   treeSteps: TreeStep[];
   markers: Marker[];
   states?: WorldState[];

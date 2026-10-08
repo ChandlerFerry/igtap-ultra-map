@@ -1,7 +1,16 @@
 import { memo } from "react";
-import { inState, type Solid, type StatePick } from "./data";
+import { inState, type Solid, type StatePick, type TreeStep } from "./data";
 import { circlePath, fy, polyPath } from "./geometry";
-import { BOX_COLOR, GROWN_COLOR, LEVEL_COLOR, SPIKE_COLOR, SPRING_COLOR, TONE_COLORS } from "./theme";
+import {
+  BOX_COLOR,
+  GROWN_COLOR,
+  LEVEL_COLOR,
+  SPIKE_COLOR,
+  SPRING_COLOR,
+  TONE_COLORS,
+  treeStepColor,
+  WHITE,
+} from "./theme";
 
 type Tone = "blue" | "orange";
 const TONES: Tone[] = ["blue", "orange"];
@@ -14,7 +23,6 @@ export type LevelPaths = {
   spikes: string;
   spikeLines: string;
   boxes: string;
-  grown: string;
   springs: string;
   springDirs: SpringDir[];
   tone: Record<Tone, { ground: string; spikes: string }>;
@@ -27,7 +35,6 @@ export type LevelShow = {
   boxes: boolean;
   blue: boolean;
   orange: boolean;
-  grown: boolean;
   springs: boolean;
 };
 
@@ -62,14 +69,13 @@ function solidPath(s: Solid) {
   return s.k === "poly" ? d + "Z" : d;
 }
 
-export function levelPaths(solids: Solid[], boxes: number[][], grown: Solid[], pick: StatePick): LevelPaths {
+export function levelPaths(solids: Solid[], boxes: number[][], pick: StatePick): LevelPaths {
   const out: LevelPaths = {
     ground: "",
     lines: "",
     spikes: "",
     spikeLines: "",
     boxes: boxes.map(polyPath).join(""),
-    grown: grown.map((s) => polyPath(s.p)).join(""),
     springs: "",
     springDirs: [],
     tone: { blue: { ground: "", spikes: "" }, orange: { ground: "", spikes: "" } },
@@ -147,16 +153,6 @@ export const Level = memo(function Level({ paths, show, px }: { paths: LevelPath
           ),
       )}
       {show.boxes && <path d={paths.boxes} fill={BOX_COLOR} fillOpacity={0.12} stroke={BOX_COLOR} strokeWidth={1} />}
-      {show.grown && (
-        <path
-          d={paths.grown}
-          fill={GROWN_COLOR}
-          fillOpacity={0.3}
-          stroke={GROWN_COLOR}
-          strokeWidth={1.5}
-          strokeDasharray="6 4"
-        />
-      )}
       {show.springs && (
         <path
           d={paths.springs}
@@ -209,6 +205,51 @@ export const Hazards = memo(function Hazards({ paths, show }: { paths: LevelPath
             />
           ),
       )}
+    </g>
+  );
+});
+
+/** One path per tree segment (index into treeSteps), from the grown shapes that make it up. */
+export const segmentPaths = (grown: Solid[], grownStep: number[], steps: TreeStep[]) =>
+  grown.reduce(
+    (d, s, i) => {
+      if (d[grownStep[i]] !== undefined) d[grownStep[i]] += polyPath(s.p);
+      return d;
+    },
+    steps.map(() => ""),
+  );
+
+const samePurchase = (a: TreeStep, b: TreeStep | null) => !!b && a.tree === b.tree && a.step === b.step;
+
+/** Tree segments filled by purchase order within their tree; the segments of the hovered/tapped purchase light up together. */
+export const TreeSegments = memo(function TreeSegments({
+  paths,
+  steps,
+  hi,
+}: {
+  paths: string[];
+  steps: TreeStep[];
+  hi: TreeStep | null;
+}) {
+  const last: Record<number, number> = {};
+  for (const t of steps) last[t.tree] = Math.max(last[t.tree] ?? 1, t.step);
+  return (
+    <g pointerEvents="none">
+      {steps.map((t, i) => {
+        const color = t.step ? treeStepColor((t.step - 1) / Math.max(1, last[t.tree] - 1)) : GROWN_COLOR;
+        const on = samePurchase(t, hi);
+        return (
+          <path
+            key={i}
+            d={paths[i]}
+            fill={color}
+            fillOpacity={on ? 0.75 : hi ? 0.2 : 0.45}
+            stroke={on ? WHITE : color}
+            strokeWidth={on ? 3 : 1.5}
+            strokeLinejoin="round"
+          />
+        );
+      })}
     </g>
   );
 });

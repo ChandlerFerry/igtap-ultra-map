@@ -281,7 +281,7 @@ namespace IGTAP.EngineSim.Ultras
             return solids;
         }
 
-        internal sealed record TreeGround(List<object> Shapes, List<object> Steps);
+        internal sealed record TreeGround(List<object> Shapes, List<int> ShapeStep, List<object> Steps);
 
         internal static TreeGround Grown(JsonElement world, Vector3 origin, float x0, float y0, float x1, float y1)
         {
@@ -346,6 +346,7 @@ namespace IGTAP.EngineSim.Ultras
             var bodies = Bodies(world, origin);
             HashSet<int> on = OnObjects(world, allStates: true);
             var shapes = new List<object>();
+            var shapeSegment = new List<int>();
             var extent = new Dictionary<int, (float x0, float y0, float x1, float y1)>();
             foreach (JsonElement o in objects)
             {
@@ -369,20 +370,22 @@ namespace IGTAP.EngineSim.Ultras
                         for (int i = 0; i + 1 < v.Length; i += 2) { sx0 = Math.Min(sx0, v[i]); sx1 = Math.Max(sx1, v[i]); sy0 = Math.Min(sy0, v[i + 1]); sy1 = Math.Max(sy1, v[i + 1]); }
                         if (sx1 < x0 || sx0 > x1 || sy1 < y0 || sy0 > y1) continue;
                         shapes.Add(new { k = "poly", spike = false, p = v.Select(Round), r = 0f });
+                        shapeSegment.Add(segment);
                         extent[segment] = extent.TryGetValue(segment, out var e) ? (Math.Min(e.x0, sx0), Math.Min(e.y0, sy0), Math.Max(e.x1, sx1), Math.Max(e.y1, sy1)) : (sx0, sy0, sx1, sy1);
                     }
                 }
             }
-            var labels = extent.Select(kv => (object)new
+            var order = extent.Keys.ToList();
+            var labels = order.Select(id => (object)new
             {
-                tree = steps[kv.Key].tree,
-                step = steps[kv.Key].step,
-                via = steps[kv.Key].via,
-                box = steps[kv.Key].box,
-                x = Round((kv.Value.x0 + kv.Value.x1) / 2f),
-                y = Round((kv.Value.y0 + kv.Value.y1) / 2f)
+                tree = steps[id].tree,
+                step = steps[id].step,
+                via = steps[id].via,
+                box = steps[id].box,
+                x = Round((extent[id].x0 + extent[id].x1) / 2f),
+                y = Round((extent[id].y0 + extent[id].y1) / 2f)
             }).ToList();
-            return new TreeGround(shapes, labels);
+            return new TreeGround(shapes, shapeSegment.Select(s => order.IndexOf(s)).ToList(), labels);
         }
 
         static readonly string[] Currencies = { "W", "GP", "NP", "number", "CD", "RP", "BP" };

@@ -25,3 +25,12 @@ export const floorY = (f: number[], x: number) =>
   f[2] > f[0] ? f[1] + (f[3] - f[1]) * Math.min(1, Math.max(0, (x - f[0]) / (f[2] - f[0]))) : f[1];
 export const where = (f: number[]) =>
   `${f[0].toFixed(0)}…${f[2].toFixed(0)} @ ${f[1] === f[3] ? f[1].toFixed(0) : `${f[1].toFixed(0)}→${f[3].toFixed(0)}`}`;
+
+/** Even-odd point-in-polygon on a flat [x0, y0, x1, y1, …] ring (world coordinates). */
+export function insidePoly(p: number[], x: number, y: number) {
+  let inside = false;
+  for (let i = 0, j = p.length - 2; i < p.length; j = i, i += 2)
+    if (p[i + 1] > y !== p[j + 1] > y && x < ((p[j] - p[i]) * (y - p[i + 1])) / (p[j + 1] - p[i + 1]) + p[i])
+      inside = !inside;
+  return inside;
+}

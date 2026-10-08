@@ -25,6 +25,8 @@ export const ULTRA_COLOR = "#ffd54f";
 export const ZIP_COLOR = "#ffb74d";
 export const TONE_COLORS: Record<"blue" | "orange", string> = { blue: "#42a5f5", orange: "#ffa726" };
 export const GROWN_COLOR = "#c5a26b";
+/** Tree segments by purchase order, f = 0 (first buy, pale yellow) … 1 (last buy, deep teal). */
+export const treeStepColor = (f: number) => `hsl(${55 + 115 * f} 75% ${72 - 26 * f}%)`;
 export const SPRING_COLOR = "#ffd54f";
 export const SPIKE_COLOR = "#e5484d";
 export const LEVEL_COLOR = "#8193ab";

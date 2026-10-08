@@ -22,7 +22,6 @@ export const DEFAULT_LAYERS: Record<string, boolean> = {
   orange: true,
   springs: true,
   boxes: false,
-  grown: false,
   "marker:checkpoint": true,
   checkpointAreas: false,
   areas: false,

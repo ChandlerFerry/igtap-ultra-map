@@ -234,6 +234,7 @@ namespace IGTAP.EngineSim.Ultras
                 floorWhen = floors.Select(f => f.When),
                 solids = Level.Solids(world.RootElement, origin, x0, y0, x1, y1),
                 grown = tree.Shapes,
+                grownStep = tree.ShapeStep,
                 treeSteps = tree.Steps,
                 markers,
                 zips = Level.Zips(world.RootElement, origin).Where(z => z.box[2] >= x0 && z.box[0] <= x1 && z.box[3] >= y0 && z.box[1] <= y1),

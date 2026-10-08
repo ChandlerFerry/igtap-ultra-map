@@ -5,7 +5,6 @@ import {
   BANDS,
   BOX_COLOR,
   BOX_KINDS,
-  GROWN_COLOR,
   IN_COLOR,
   KIND_TEXT,
   kindColor,
@@ -16,6 +15,7 @@ import {
   SPIKE_COLOR,
   SPRING_COLOR,
   TONE_COLORS,
+  treeStepColor,
   ZIP_COLOR,
   type Look,
 } from "./theme";
@@ -68,7 +68,16 @@ function sections(kinds: string[], icons: Record<string, MarkIcon>): [string, Ro
       [
         { layer: "background", text: "Background art", swatch: glyph("▦") },
         { layer: "art", text: "Game art", swatch: glyph("▦") },
-        { layer: "tree", text: "Tree", swatch: glyph("▲", GROWN_COLOR) },
+        {
+          layer: "tree",
+          text: "Tree segments, first → last buy",
+          swatch: (
+            <i
+              className="bands"
+              style={{ background: `linear-gradient(90deg,${treeStepColor(0)},${treeStepColor(1)})` }}
+            />
+          ),
+        },
         { layer: "shapes", text: "Collision shapes", swatch: line(LEVEL_COLOR) },
         { layer: "spikes", text: "Hazards", swatch: line(SPIKE_COLOR) },
         { layer: "blue", text: "Blue blocks/spikes", swatch: line(TONE_COLORS.blue) },
@@ -76,7 +85,6 @@ function sections(kinds: string[], icons: Record<string, MarkIcon>): [string, Ro
         { layer: "springs", text: "Springs", swatch: line(SPRING_COLOR) },
         { layer: "boxes", text: "Upgrade boxes", swatch: line(BOX_COLOR) },
         { layer: "zips", text: "Zips", swatch: line(ZIP_COLOR) },
-        { layer: "grown", text: "Tree ground outline", swatch: line(GROWN_COLOR) },
       ],
     ],
     [

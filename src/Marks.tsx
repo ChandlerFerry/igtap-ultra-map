@@ -2,7 +2,7 @@ import { memo } from "react";
 import type { MarkIcon } from "./Art";
 import type { BoxInfo, Label, Marker, TreeStep } from "./data";
 import { circlePath, fy, polyPath, starPath } from "./geometry";
-import { BG, BOX_KINDS, GROWN_COLOR, LABEL_COLOR, MARKERS, ORB_HI_COLOR, type Look } from "./theme";
+import { BG, BOX_KINDS, LABEL_COLOR, MARKERS, ORB_HI_COLOR, type Look } from "./theme";
 
 const LABEL_PX = 3;
 const GATES = new Set(["start", "end", "exit", "falseEnding", "trueEnding"]);
@@ -156,23 +156,19 @@ function Mark({ m, look, px, icon, dim }: { m: Marker; look: Look; px: number; i
 
 export const Marks = memo(function Marks({
   markers,
-  steps,
   px,
   kinds,
   areas,
   checkpointAreas,
-  showSteps,
   icons,
   hiTier,
   hiBox,
 }: {
   markers: Marker[];
-  steps: TreeStep[];
   px: number;
   kinds: Record<string, boolean>;
   areas: boolean;
   checkpointAreas: boolean;
-  showSteps: boolean;
   icons: Record<string, MarkIcon>;
   /** The ActivationSequence tier of refill orbs to light up (hovered orb-affecting box), or null for none. */
   hiTier?: number | null;
@@ -230,23 +226,6 @@ export const Marks = memo(function Marks({
           pointerEvents="none"
         />
       )}
-      {showSteps &&
-        steps.map((t, i) => (
-          <text
-            key={i}
-            x={t.x}
-            y={fy(t.y) + 5 * px}
-            fill={GROWN_COLOR}
-            fontSize={14 * px}
-            fontWeight={700}
-            textAnchor="middle"
-            className="halo"
-            strokeWidth={3 * px}
-          >
-            {t.step || "?"}
-            <title>{treeStepText(t)}</title>
-          </text>
-        ))}
     </g>
   );
 });

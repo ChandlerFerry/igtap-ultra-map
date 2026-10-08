@@ -11,9 +11,9 @@ import {
   type UltraData,
   type Zip,
 } from "./data";
-import { floorPath, floorY, fmt, where, type P } from "./geometry";
+import { floorPath, floorY, fmt, insidePoly, where, type P } from "./geometry";
 import { Legend } from "./Legend";
-import { Hazards, Level, levelPaths, type LevelShow } from "./Level";
+import { Hazards, Level, levelPaths, segmentPaths, TreeSegments, type LevelShow } from "./Level";
 import { Labels, layerOf, Marks } from "./Marks";
 import { ArrowDefs, DropLabel, FloorPairs, UltraLegs } from "./PairLayers";
 import { decodePairs, groupByFloor, isShiftOnly, matches, pairCounts, ultraLegs, type Pair } from "./pairs";
@@ -44,6 +44,7 @@ export function UltraMap() {
   const [direction, setDirection] = useState<Direction>(saved.direction);
   const [world, setWorld] = useState<StatePick>({});
   const [treeTip, setTreeTip] = useState<TreeStep | null>(null);
+  const [hoverTree, setHoverTree] = useState<TreeStep | null>(null);
   const [boxTip, setBoxTip] = useState<Marker | null>(null);
   const [hoverMark, setHoverMark] = useState<Marker | null>(null);
   const [cursor, setCursor] = useState<P | null>(null);
@@ -114,13 +115,16 @@ export function UltraMap() {
       levelPaths(
         data?.solids ?? [],
         (data?.boxes ?? []).filter((_, i) => inState(data?.boxWhen?.[i], world)),
-        data?.grown ?? [],
         world,
       ),
     [data, world],
   );
   const markers = useMemo(() => (data?.markers ?? []).filter((m) => inState(m.when, world)), [data, world]);
   const treeSteps = useMemo(() => data?.treeSteps ?? [], [data]);
+  const treePaths = useMemo(
+    () => (data?.grownStep ? segmentPaths(data.grown, data.grownStep, treeSteps) : []),
+    [data, treeSteps],
+  );
   const zips = useMemo(() => (data?.zips ?? []).filter((z) => inState(z.when, world)), [data, world]);
   const icons = useMemo(() => artIcons(art), [art]);
   const levelShow = useMemo<LevelShow>(
@@ -129,7 +133,6 @@ export function UltraMap() {
       boxes: layers.boxes,
       blue: layers.blue,
       orange: layers.orange,
-      grown: layers.grown,
       springs: layers.springs,
     }),
     [layers],
@@ -157,6 +160,12 @@ export function UltraMap() {
     return best;
   };
 
+  const segmentAt = (p: P) => {
+    if (!layers.tree || !data?.grownStep) return null;
+    const i = data.grown.findIndex((s) => insidePoly(s.p, p[0], p[1]));
+    return i >= 0 ? (treeSteps[data.grownStep[i]] ?? null) : null;
+  };
+
   const onTap = (p: P, reach: number, shiftKey: boolean) => {
     if (shiftKey || shifts.placing || shifts.mode === "target") return shifts.place(p);
     const zip = layers.zips ? zipAt(zips, p, reach) : undefined;
@@ -168,7 +177,7 @@ export function UltraMap() {
       });
       return;
     }
-    const tip = layers.tree ? (treeSteps.find((t) => Math.hypot(t.x - p[0], t.y - p[1]) < reach) ?? null) : null;
+    const tip = segmentAt(p);
     let box: Marker | null = null,
       best = reach;
     for (const m of markers) {
@@ -179,7 +188,6 @@ export function UltraMap() {
         box = m;
       }
     }
-    if (tip && Math.hypot(tip.x - p[0], tip.y - p[1]) < best) box = null;
     setBoxTip(box);
     setTreeTip(box ? null : tip);
     if (!box && !tip) {
@@ -193,10 +201,12 @@ export function UltraMap() {
     if (!p) {
       setHoverFloor(-1);
       setHoverMark(null);
+      setHoverTree(null);
       return;
     }
     if (hoverReach === null) return;
     setHoverFloor(floorAt(p, hoverReach));
+    setHoverTree(segmentAt(p));
     let mark: Marker | null = null,
       best = hoverReach;
     for (const m of markers) {
@@ -290,6 +300,7 @@ export function UltraMap() {
           <Art tiles={tilesFor({ ...world, tree: "grown" }, layers.tree)} />
           {(!artShown || layers.shapes) && <Level paths={level} show={levelShow} px={px} />}
           {artShown && !layers.shapes && layers.spikes && <Hazards paths={level} show={levelShow} />}
+          {layers.tree && <TreeSegments paths={treePaths} steps={treeSteps} hi={hoverTree ?? treeTip} />}
           {data?.kinds.map(
             (k, i) =>
               layers[`floor:${k}`] && (
@@ -329,12 +340,10 @@ export function UltraMap() {
           <Marks
             icons={icons}
             markers={markers}
-            steps={treeSteps}
             px={px}
             kinds={markerKinds}
             areas={layers.areas}
             checkpointAreas={layers.checkpointAreas}
-            showSteps={layers.tree}
             hiTier={hiTier}
             hiBox={hiTier != null ? hiBox : null}
           />
@@ -375,7 +384,10 @@ export function UltraMap() {
               }}
             />
           ) : (
-            <Hint tree={treeTip} hover={hover ? `Floor ${where(hover)} · ${pairCounts(byFloor, hoverFloor)}` : null} />
+            <Hint
+              tree={hoverTree ?? treeTip}
+              hover={hover ? `Floor ${where(hover)} · ${pairCounts(byFloor, hoverFloor)}` : null}
+            />
           )}
           {cursor && (
             <span className="readout">
